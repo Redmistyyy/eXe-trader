@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Library</OutputType>
+    <Version>0.0.1</Version>
+    <BaseOutputPath>D:\SPT40BE\ModDev\executive\release</BaseOutputPath>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <Authors>Redmisty</Authors>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="SPTarkov.Common" Version="4.0.0-prerelease25" />
+    <PackageReference Include="SPTarkov.DI" Version="4.0.0-prerelease25" />
+    <PackageReference Include="SPTarkov.Server.Core" Version="4.0.0-prerelease25" />
+  </ItemGroup>
+
+</Project>
