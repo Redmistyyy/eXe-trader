@@ -13,7 +13,7 @@ public record ModMetadata : AbstractModMetadata
         public override string Name { get; init; } = "Executive";
         public override string Author { get; init; } = "Redmisty";
         public override string SptVersion { get; init; } = "4.0.0";
-        public override string Version { get; init; } = "0.0.1";
+        public override string Version { get; init; } = "0.0.2";
         public override List<string>? Contributors { get; set; }
         public override List<string>? LoadBefore { get; set; }
         public override List<string>? LoadAfter { get; set; }
@@ -24,14 +24,21 @@ public record ModMetadata : AbstractModMetadata
         public override string? License { get; init; } = "MIT";
     }
 
-[Injectable(TypePriority = OnLoadOrder.PreSptModLoader + 1)]
+[Injectable(TypePriority = OnLoadOrder.PostSptModLoader + 1)]
 
-public class PreSptContents(ISptLogger<PreSptContents> logger) : IOnLoad
+public class PostSptMlContents(ISptLogger<PostSptMlContents> logger, AddLocales addLocales) : IOnLoad
 { 
     public Task OnLoad()
     {
-        logger.LogWithColor("This is a test and a new start", LogTextColor.Magenta);
-
+        try 
+        {
+            addLocales.AddLocalesMultipleLang();
+        }
+        catch (Exception ex)
+        {
+            logger.Error($"An error occurred: {ex.Message}", ex);
+        }
+        
         return Task.CompletedTask;
     }
 }
@@ -44,7 +51,6 @@ public class PostDBContents (ISptLogger<PostDBContents> logger, AddExecutiveTrad
     {
         // Trader load Stage
         addExecutiveTrader.AddTrader();
-        addExecutiveTrader.AddTraderToLocales("1", "1");
 
         logger.LogWithColor($"[{addExecutiveTrader._modName}] {addExecutiveTrader._traderName} advent!", LogTextColor.Magenta);
         return Task.CompletedTask;

@@ -12,6 +12,35 @@ using SPTarkov.Server.Core.DI;
 
 namespace executive
 {
+    [Injectable(TypePriority = OnLoadOrder.PostSptModLoader + 1)]
+    public class AddLocales(ISptLogger<AddLocales> logger, DatabaseService databaseService, ModHelper modHelper, LocaleService localeService)
+    {
+        private string ModPath = modHelper.GetAbsolutePathToModFolder(Assembly.GetExecutingAssembly());
+
+        public void AddLocalesMultipleLang()
+        {
+           var sptLocales = databaseService.GetTables().Locales.Global;
+           var myLangNames = ExeHelper.GetFileNamesWithoutExtension(ModPath + "/db/locales/");
+
+            foreach (var myLangName in myLangNames)
+            {
+                var myLangFile = modHelper.GetJsonDataFromFile<Dictionary<string, string>>(ModPath, $"db/locales/{myLangName}.json");
+                if (databaseService.GetTables().Locales.Global.TryGetValue(myLangName, out var lazyLoadedValue))
+                {
+                    lazyLoadedValue.AddTransformer(lazyLoadedValueData =>
+                    {
+                        foreach (var kvp in myLangFile)
+                        {
+                            lazyLoadedValueData.Add(kvp.Key, kvp.Value);
+                        }
+                        return lazyLoadedValueData;
+                    });
+                }
+            }
+        }
+    }
+
+
     [Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 1)]
     public class AddExecutiveTrader(ISptLogger<AddExecutiveTrader> logger, ICloner cloner, DatabaseService databaseService, DatabaseServer databaseServer, ConfigServer configServer, ModHelper modHelper, ItemHelper itemHelper)
     {
@@ -115,13 +144,9 @@ namespace executive
                     if (itemdb[itemTpl].Parent.Equals("543be5cb4bdc2deb348b4568"))
                     {
                         var cartridge = new List<Item> { item };
-
                         itemHelper.AddCartridgesToAmmoBox(cartridge, itemdb[itemTpl]);
-
                         assortDataToAdd.Items.AddRange(cartridge);
-                       
                         AddBarterSchemesAndLoyality(assortId, traderAssort, assortDataToAdd);
-                        // logger.Debug($"[{_modName}] Item {itemTpl} is ammobox, filled it with Nikita's love.");
                     }
                     else
                     {
@@ -145,8 +170,9 @@ namespace executive
             traderToEdit.Assort = assortDataToAdd;
         }
 
-        /// <summary>
-        public void AddTraderToLocales(string firstName, string description)
+        
+        
+        /*public void AddTraderToLocales()
         {
             // For each language, add locale for the new trader
             var locales = databaseService.GetTables().Locales.Global;
@@ -155,6 +181,8 @@ namespace executive
             var fullName = traderBase.Name;
             var nickName = traderBase.Nickname;
             var location = traderBase.Location;
+            var firstName = "Yudintsev";
+            var description = "CEO of Gaijin T&PMC, now coming to Tarkov, seems have cooperation with TerraGroup, but nobody knows what's going on because he decided to provide supply to PMCs. Also bring SCAVs with benefits from Seversk-13.";
 
             foreach (var (localeKey, localeKvP) in locales)
             {
@@ -170,7 +198,7 @@ namespace executive
                     return lazyloadedLocaleData;
                 });
             }
-        }
+        }*/
 
         public void AddTrader()
         {
