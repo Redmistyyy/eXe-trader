@@ -9,6 +9,8 @@ using SPTarkov.Server.Core.Utils.Cloners;
 using System.Reflection;
 using SPTarkov.DI.Annotations;
 using SPTarkov.Server.Core.DI;
+using SPTarkov.Server.Core.Routers;
+using SPTarkov.Server.Core.Models.Eft.Hideout;
 
 namespace executive
 {
@@ -42,7 +44,7 @@ namespace executive
 
 
     [Injectable(TypePriority = OnLoadOrder.PostDBModLoader + 1)]
-    public class AddExecutiveTrader(ISptLogger<AddExecutiveTrader> logger, ICloner cloner, DatabaseService databaseService, DatabaseServer databaseServer, ConfigServer configServer, ModHelper modHelper, ItemHelper itemHelper)
+    public class AddExecutiveTrader(ISptLogger<AddExecutiveTrader> logger, ICloner cloner, DatabaseService databaseService, DatabaseServer databaseServer, ConfigServer configServer, ModHelper modHelper, ItemHelper itemHelper, ImageRouter imageRouter)
     {
         private readonly TraderConfig _traderConfig = configServer.GetConfig<TraderConfig>();
         private readonly RagfairConfig _ragfairConfig = configServer.GetConfig<RagfairConfig>();
@@ -60,8 +62,8 @@ namespace executive
             };
 
             _traderConfig.UpdateTime.Add(traderRefreshRecord);
+            _ragfairConfig.Traders.Add(_traderId, true);
         }
-        
         private void CreateEmptyTraderAssort()
         {
             var traderBase = modHelper.GetJsonDataFromFile<TraderBase>(ModPath, "db/trader/base.json");
@@ -96,8 +98,12 @@ namespace executive
                 logger.Error($"[{_modName}] Trader Executive failed to load! Please report issue to mod author.");
             }
         }
-
-
+        private void AddTraderImageRouter()
+        {
+            var traderBase = modHelper.GetJsonDataFromFile<TraderBase>(ModPath, "db/trader/base.json");
+            var avatarRouterPath = System.IO.Path.Combine(ModPath, $"res/avatars/{_traderId}.png");
+            imageRouter.AddRoute(traderBase.Avatar.Replace(".png", ""), avatarRouterPath);
+        }
         private void AddBarterSchemesAndLoyality(MongoId assortId, TraderAssort source, TraderAssort target)
         {
             if (source.BarterScheme.TryGetValue(assortId, out var barterScheme))
@@ -169,44 +175,54 @@ namespace executive
             // Override the traders assorts with the ones we passed in
             traderToEdit.Assort = assortDataToAdd;
         }
-
-        
-        
-        /*public void AddTraderToLocales()
+        private void AddCustomRecipes()
         {
-            // For each language, add locale for the new trader
-            var locales = databaseService.GetTables().Locales.Global;
-            var traderBase = modHelper.GetJsonDataFromFile<TraderBase>(ModPath, "db/trader/base.json");
-            var newTraderId = traderBase.Id;
-            var fullName = traderBase.Name;
-            var nickName = traderBase.Nickname;
-            var location = traderBase.Location;
-            var firstName = "Yudintsev";
-            var description = "CEO of Gaijin T&PMC, now coming to Tarkov, seems have cooperation with TerraGroup, but nobody knows what's going on because he decided to provide supply to PMCs. Also bring SCAVs with benefits from Seversk-13.";
+            var sptRecipes = databaseServer.GetTables().Hideout.Production.Recipes;
+            var myRecipes = modHelper.GetJsonDataFromFile<Dictionary<string, HideoutProduction>>(ModPath, "db/templates/hideout/customProduction.json");
 
-            foreach (var (localeKey, localeKvP) in locales)
+            if (myRecipes?.Count == 0)
             {
-                // We have to add a transformer here, because locales are lazy loaded due to them taking up huge space in memory
-                // The transformer will make sure that each time the locales are requested, the ones added below are included
-                localeKvP.AddTransformer(lazyloadedLocaleData =>
-                {
-                    lazyloadedLocaleData.Add($"{newTraderId} FullName", fullName);
-                    lazyloadedLocaleData.Add($"{newTraderId} FirstName", firstName);
-                    lazyloadedLocaleData.Add($"{newTraderId} Nickname", nickName);
-                    lazyloadedLocaleData.Add($"{newTraderId} Location", location);
-                    lazyloadedLocaleData.Add($"{newTraderId} Description", description);
-                    return lazyloadedLocaleData;
-                });
+                logger.Warning($"[{_modName}] No custom recipes found in the specified path.");
+                return;
             }
-        }*/
+            sptRecipes.AddRange(myRecipes.Values);
+        }
+
+        private void AddCustomQuests()
+        {
+            var sptQuests = databaseServer.GetTables().Templates.Quests;
+            var myQuestsDirectory = System.IO.Path.Combine(ModPath, "db/templates/quests");
+            var myQuestsImagesDirectory = System.IO.Path.Combine(ModPath, "res/quests");
+            var myQuestFiles = ExeHelper.GetFileNamesWithoutExtension(myQuestsDirectory);
+
+            foreach (var myQuestFile in myQuestFiles)
+            {
+                var myQuest = modHelper.GetJsonDataFromFile<Quest>(ModPath, $"db/templates/quests/{myQuestFile}.json");
+                if (myQuest is not null)
+                {
+                    sptQuests.Add(myQuest.Id, myQuest);
+                    var questsImagePath = System.IO.Path.Combine(myQuestsImagesDirectory, $"{myQuest.Id}.png");
+                    imageRouter.AddRoute(myQuest.Image.Replace(".png", ""), questsImagePath);
+                }
+                else
+                {
+                    logger.Warning($"[{_modName}] Quest file {myQuestFile} could not be loaded, please check the file format.");
+                }
+            }
+        }
 
         public void AddTrader()
         {
+            SetTraderUpdateTime();
+            AddTraderImageRouter();
+            CreateEmptyTraderAssort();
+            AddTraderAssort();
+            AddCustomRecipes();
+            AddCustomQuests();
+            
             try
             {
-                SetTraderUpdateTime();
-                CreateEmptyTraderAssort();
-                AddTraderAssort();
+                
             }
             catch (Exception ex)
             {
